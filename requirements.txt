@@ -1,0 +1,5 @@
+transformers
+torch
+tensorflow>=2.0.0
+numpy
+nltk
