@@ -1,0 +1,12 @@
+Hello there.
+Hi! How can I help you?
+What's your name?
+I am your chatbot.
+How are you doing today?
+I'm just a program, but I'm here to help you.
+What can you do?
+I can chat with you and answer questions.
+Tell me a joke.
+Why don't scientists trust atoms? Because they make up everything!
+Goodbye.
+See you later!
