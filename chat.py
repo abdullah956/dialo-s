@@ -6,12 +6,12 @@ from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.callbacks import EarlyStopping
 import nltk
+import json
 import re
 
-# Download necessary NLTK data
 nltk.download('punkt')
 
-# Sample data
+# Preprocess the conversations data
 conversations = [
     "Hello there.",
     "Hi! How can I help you?",
@@ -27,14 +27,13 @@ conversations = [
     "See you later!"
 ]
 
-# Preprocessing function to clean text
 def preprocess_text(text):
     text = text.lower()
     text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
     text = re.sub(r'\s+', ' ', text).strip()  # Remove extra spaces
     return text
 
-# Create input-output pairs
+# Prepare input-output pairs
 pairs = []
 for i in range(len(conversations) - 1):
     input_text = preprocess_text(conversations[i])
@@ -42,7 +41,7 @@ for i in range(len(conversations) - 1):
     if input_text and target_text:
         pairs.append((input_text, target_text))
 
-# Prepare sequences
+# Prepare tokenizer and sequences
 input_texts, target_texts = zip(*pairs)
 tokenizer = Tokenizer()
 tokenizer.fit_on_texts(input_texts + target_texts)
@@ -53,78 +52,71 @@ target_sequences = tokenizer.texts_to_sequences(target_texts)
 # Calculate vocab size
 vocab_size = len(tokenizer.word_index) + 1
 
-# Pad sequences
+# Pad input sequences
 max_seq_length = max(len(seq) for seq in input_sequences)
 input_sequences = pad_sequences(input_sequences, maxlen=max_seq_length, padding='post')
+
+# Prepare target data - shift sequences by one position
+target_sequences = [seq + [0] for seq in target_sequences]  # Add padding token
 target_sequences = pad_sequences(target_sequences, maxlen=max_seq_length, padding='post')
 
-# Prepare target data - remove last token for proper output shape
-target_data = target_sequences[:, 1:]  # Exclude the first token
-input_data = input_sequences[:, :-1]    # Exclude the last token to match target shape
+# For sparse_categorical_crossentropy, the target shape should match output shape
+# Thus, remove the last token in target data to match the target output shape
+input_data = input_sequences
+target_data = np.expand_dims(target_sequences, -1)
 
-# Create model
+# Build the model
 model = Sequential([
-    Embedding(vocab_size, 256, input_length=max_seq_length - 1),  # Adjust input_length
+    Embedding(vocab_size, 256, input_length=max_seq_length),
     LSTM(512, return_sequences=True),
-    LSTM(512),
+    LSTM(512, return_sequences=True),
     Dense(vocab_size, activation='softmax')
 ])
 
-# Compile model
-model.compile(
-    optimizer='adam',
-    loss='sparse_categorical_crossentropy',
-    metrics=['accuracy']
-)
+# Compile the model
+model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
 
 # Print model summary
 model.summary()
 
 # Training callbacks
-early_stopping = EarlyStopping(
-    monitor='val_loss',
-    patience=5,
-    restore_best_weights=True
-)
+early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
 
-# Train model
-history = model.fit(
-    input_data,
-    target_data,
-    epochs=50,
-    batch_size=32,
-    validation_split=0.2,
-    callbacks=[early_stopping]
-)
+# Train the model
+history = model.fit(input_data, target_data, epochs=50, batch_size=32, validation_split=0.2, callbacks=[early_stopping])
 
-# Save model and tokenizer
+# Save the model and tokenizer
 model.save('chatbot_model.keras')
 with open('tokenizer.json', 'w') as f:
     json.dump(tokenizer.to_json(), f)
 
-# Function to generate response
+# Function to generate a response
 def generate_response(input_text, max_length=None):
     if max_length is None:
         max_length = max_seq_length - 1
     
     # Preprocess input
     input_text = preprocess_text(input_text)
+    print(f"Processed input text: {input_text}")
+    
     input_seq = tokenizer.texts_to_sequences([input_text])
     input_seq = pad_sequences(input_seq, maxlen=max_length, padding='post')
+    print(f"Input sequence: {input_seq}")
     
     # Generate prediction
     predicted_sequence = []
     for _ in range(max_length):
         prediction = model.predict(input_seq, verbose=0)
-        predicted_id = np.argmax(prediction[0], axis=-1)
+        predicted_id = np.argmax(prediction[0, -1, :])
         predicted_sequence.append(predicted_id)
+        print(f"Predicted id: {predicted_id}")
         
         if predicted_id == 0:  # Stop if padding token is predicted
             break
             
         # Update input sequence for next prediction
-        input_seq = np.array([predicted_sequence])
-        input_seq = pad_sequences(input_seq, maxlen=max_length, padding='post')
+        input_seq = np.append(input_seq[:, 1:], [[predicted_id]], axis=1)
+        print(f"Updated input sequence: {input_seq}")
     
     # Convert ids to words
     response_words = []
@@ -134,7 +126,9 @@ def generate_response(input_text, max_length=None):
             if word:
                 response_words.append(word)
     
-    return ' '.join(response_words)
+    response = ' '.join(response_words)
+    print(f"Generated response: {response}")
+    return response
 
 # Interactive chat loop
 print("Chatbot is ready! Type 'exit' to end the conversation.")
