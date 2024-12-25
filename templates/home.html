@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chatbot by Deep Learning</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .chat-bubble {
+        max-width: 70%;
+        padding: 12px 18px;
+        border-radius: 18px;
+        font-size: 1rem;
+        margin-bottom: 12px;
+      }
+      .bot-bubble {
+        background-color: #f0f0f0;
+        margin-right: auto;
+      }
+      .user-bubble {
+        background-color: #3b82f6;
+        color: white;
+        margin-left: auto;
+      }
+      .chatbox-container {
+        max-width: 500px;
+        height: 400px;
+        overflow-y: auto;
+      }
+      .input-field {
+        border-radius: 20px;
+        border: 1px solid #d1d5db;
+        padding: 8px 12px;
+        font-size: 0.875rem;
+        outline: none;
+        width: calc(100% - 90px); /* Adjust width to fit the button */
+      }
+      .input-field:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+      }
+      .send-button {
+        background-color: #3b82f6;
+        padding: 8px 16px;
+        border-radius: 20px;
+        color: white;
+        font-size: 0.875rem;
+        transition: background-color 0.3s;
+        width: 80px;
+      }
+      .send-button:hover {
+        background-color: #2563eb;
+      }
+      .form-container {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 text-gray-800">
+    <center>
+      <div class="container mx-auto p-4">
+        <h1 class="text-2xl font-bold text-center mb-6">Chatbot by Deep Learning</h1>
+
+        <div id="chatbox" class="bg-white shadow-md rounded p-4 mb-4 chatbox-container">
+          <!-- Chat content will be injected here -->
+        </div>
+
+        <form id="chat-form" class="form-container mt-4" style="width: 500px;">
+          <input type="text" id="message" class="input-field" placeholder="Type your message..." />
+          <button type="submit" class="send-button">Send</button>
+        </form>
+      </div>
+    </center>
+
+    <script>
+      const form = document.getElementById('chat-form')
+      const messageInput = document.getElementById('message')
+      const chatbox = document.getElementById('chatbox')
+
+      // Display a static bot message when the page loads
+      window.onload = () => {
+        chatbox.innerHTML += `
+          <div class="mb-2 flex justify-start">
+              <div class="chat-bubble bot-bubble">I'm a chatbot made with Deep Learning. Let's talk!</div>
+          </div>
+        `;
+        chatbox.scrollTop = chatbox.scrollHeight; // Scroll to the bottom
+      };
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault()
+        const message = messageInput.value.trim()
+        if (message) {
+          // Append user message
+          chatbox.innerHTML += `
+                          <div class="mb-2 flex justify-end">
+                              <div class="chat-bubble user-bubble">${message}</div>
+                          </div>
+                      `
+          messageInput.value = ''
+      
+          // Send request to the server
+          const response = await fetch('/api/respond/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: `message=${encodeURIComponent(message)}`
+          })
+          const data = await response.json()
+      
+          // Append bot response
+          chatbox.innerHTML += `
+                          <div class="mb-2 flex justify-start">
+                              <div class="chat-bubble bot-bubble">${data.response}</div>
+                          </div>
+                      `
+      
+          // Scroll to the bottom
+          chatbox.scrollTop = chatbox.scrollHeight
+        }
+      })
+    </script>
+  </body>
+</html>
