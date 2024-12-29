@@ -1,1 +1,1 @@
-# dialo-s
+# dj-chat
